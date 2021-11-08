@@ -13,9 +13,9 @@ Configuration
 """
 
 ndim        = 3
-grid_levels = np.array([8,8,4]) #np.array([8]*ndim)
+grid_levels = np.array([7,7,5]) #np.array([8]*ndim)
 grid_shape  = 2**grid_levels
-domain_size = [1]*ndim
+domain_size = np.array([1, 1, 0.25 ]) #[1]*ndim
 
 friction_velocity = 2.683479938442173
 reference_height  = 180.0
@@ -33,11 +33,9 @@ Spectral tensor
 def VonKarmanSpectralTenor(prefactor=1, beta=None):
 
     Nd, d          = grid_shape.copy(), ndim
-    # frequences     = [(2*pi/domain_size[j])*(Nd[j]*fft.fftfreq(Nd[j])) for j in range(d)]
-    frequences     = [fft.fftfreq(Nd[j]) for j in range(d)]
+    frequences     = [fft.fftfreq(Nd[j], domain_size[j]/Nd[j]) for j in range(d)]
     Nd[-1]         = int(Nd[-1] // 2)+1 ### the last dimension for rfft is twice shorter
     frequences[-1] = frequences[-1][:Nd[-1]]
-    TransformNorm  = np.sqrt(np.prod(domain_size))
 
     k  = np.array(list(np.meshgrid(*frequences, indexing='ij')))
     kk = np.sum(k**2, axis=0)
@@ -59,9 +57,9 @@ def VonKarmanSpectralTenor(prefactor=1, beta=None):
     SqrtSpectralTens  *= SqrtEnergySpectrum
 
     ### dissipation (due to diffusion)
-    if beta: SqrtSpectralTens *= np.exp(-beta*k)
+    if beta: SqrtSpectralTens *= np.exp(-beta*np.sqrt(kk))
 
-    return SqrtSpectralTens / TransformNorm
+    return SqrtSpectralTens
 
 
 """
@@ -82,6 +80,6 @@ Export vtk
 =============================================
 """
 FileName = './workfolder/fluctuation'
-spacing  = [1/grid_shape.max()]*ndim
+spacing  = list(domain_size/grid_shape) #[1/grid_shape.max()]*ndim
 cellData = {'fluctuation field': tuple(fluctuation)}
 imageToVTK(FileName, cellData = cellData, spacing=spacing)
