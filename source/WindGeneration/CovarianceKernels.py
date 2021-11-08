@@ -68,7 +68,7 @@ class VonKarmanCovariance(Covariance):
         k = np.array(list(np.meshgrid(*Frequences, indexing='ij')))
         kk = np.sum(k**2,axis=0)
 
-        const = self.E0 * (self.L**17/3) / (4*np.pi)
+        const = self.E0 * (self.L**(17/3)) / (4*np.pi)
         const = np.sqrt( const / (1 + (self.L**2) * kk)**(17/6) )
 
         # beta = 0.1
