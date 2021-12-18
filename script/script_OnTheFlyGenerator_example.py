@@ -160,11 +160,12 @@ if __name__ == "__main__":
     roughness_height = 0.75
     grid_dimensions = np.array([1200.0, 864.0, 576.0])
     grid_levels = np.array([7, 7, 7])
-    seed = 9000
+    seed = None #9000
 
     path_to_parameters = 'data/tauNet_Kaimal_pen_reg.pkl'
 
-    wind = GenerateWind(friction_velocity, reference_height, grid_dimensions, grid_levels, seed, model='NN', path_to_parameters=path_to_parameters)
+    # wind = GenerateWind(friction_velocity, reference_height, grid_dimensions, grid_levels, seed, model='NN', path_to_parameters=path_to_parameters)
+    wind = GenerateWind(friction_velocity, reference_height, grid_dimensions, grid_levels, seed, model='Mann', path_to_parameters=path_to_parameters)
     for _ in range(4):
         wind()
     wind_field = wind.total_wind
