@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+from numpy import log
 
 from .common import VKEnergySpectrum, MannEddyLifetime
 from .PowerSpectraRDT import PowerSpectraRDT
@@ -29,9 +30,12 @@ class SpectralCoherence(nn.Module):
     ###-------------------------------------------
 
     def init_parameters(self):
-        self.logLengthScale = nn.Parameter(torch.tensor(0, dtype=torch.float64))
-        self.logTimeScale   = nn.Parameter(torch.tensor(0, dtype=torch.float64))
-        self.logMagnitude   = nn.Parameter(torch.tensor(0, dtype=torch.float64))
+        LengthScale = 0.7*42
+        TimeScale = 3.9
+        Magnitude = 1.0
+        self.logLengthScale = nn.Parameter(torch.tensor(log(LengthScale), dtype=torch.float64))
+        self.logTimeScale   = nn.Parameter(torch.tensor(log(TimeScale), dtype=torch.float64))
+        self.logMagnitude   = nn.Parameter(torch.tensor(log(Magnitude), dtype=torch.float64))
 
 
     def update_scales(self):
@@ -46,14 +50,14 @@ class SpectralCoherence(nn.Module):
     def init_grids(self):
 
         ### k2 grid
-        p1, p2, N = -3, 3, 100
+        p1, p2, N = -4, 3, 200
         grid_zero = torch.tensor([0], dtype=torch.float64)
         grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)
         grid_minus= -torch.flip(grid_plus, dims=[0])
         self.grid_k2 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
 
         ### k3 grid
-        p1, p2, N = -3, 3, 100
+        p1, p2, N = -4, 3, 200
         grid_zero = torch.tensor([0], dtype=torch.float64)
         grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)
         grid_minus= -torch.flip(grid_plus, dims=[0])
@@ -76,7 +80,8 @@ class SpectralCoherence(nn.Module):
         k0L = self.LengthScale * self.k0.norm(dim=-1)
         self.E0  = self.Magnitude * VKEnergySpectrum(k0L)
         self.Phi = self.PowerSpectra()
-        Phi11, Phi33, Phi13 = self.Phi[0], self.Phi[2], self.Phi[3]
+        # Phi11, Phi33, Phi13 = self.Phi[0], self.Phi[2], self.Phi[3]
+        Phi11, Phi33, Phi13 = self.Phi[0], self.Phi[0], self.Phi[0]
         F1 = self.quad23(Phi11)
         F3 = self.quad23(Phi33)
         k2, k3 = self.k[...,1], self.k[...,2]

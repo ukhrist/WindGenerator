@@ -18,7 +18,7 @@ from source.SpectralCoherence import SpectralCoherence
 ####################################
 
 config = {
-    'type_EddyLifetime' :   'tauNet',  ### 'const', TwoThird', 'Mann', 'tauNet'
+    'type_EddyLifetime' :   'Mann',  ### 'const', TwoThird', 'Mann', 'tauNet'
     'type_PowerSpectra' :   'RDT', ### 'RDT', 'zetaNet', 'C3Net', 'Corrector'
     'nlayers'           :   2,
     'hidden_layer_size' :   10,
@@ -41,13 +41,32 @@ SpCoh = SpectralCoherence(**config)
 
 ### Data points
 A = 50
-N_f, N_y, N_z = 3, 3, 3
-k1 = torch.logspace(-3,2, N_f, dtype=torch.float64)
+N_f, N_y, N_z = 50, 11, 11
+k1 = torch.logspace(-3,0, N_f, dtype=torch.float64)
 Delta_y = torch.linspace(-A, A, N_y, dtype=torch.float64)
 Delta_z = torch.linspace(-A, A, N_z, dtype=torch.float64)
 
 ### Forward run
-y = SpCoh(k1, Delta_y, Delta_z)
+y = SpCoh(k1, Delta_y, Delta_z).cpu().detach().numpy()
+
+zero_ind = 5
+ten_ind = 6 
+thirty_ind = 8 
+fifty_ind = -1
+
+plt.figure()
+semilogx(k1, y[:,ten_ind,zero_ind], label='Delta_y = 10, Delta_z = 0')
+semilogx(k1, y[:,thirty_ind,zero_ind], label='Delta_y = 30, Delta_z = 0')
+semilogx(k1, y[:,fifty_ind,zero_ind], label='Delta_y = 50, Delta_z = 0')
+plt.legend()
+
+
+plt.figure()
+semilogx(k1, y[:,zero_ind,ten_ind], label='Delta_y = 0, Delta_z = 10')
+semilogx(k1, y[:,zero_ind,thirty_ind], label='Delta_y = 0, Delta_z = 30')
+semilogx(k1, y[:,zero_ind,fifty_ind], label='Delta_y = 0, Delta_z = 50')
+plt.legend()
+plt.show()
 
 pass
 
