@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pylab import *
 import pickle
-from math import log
+from math import log, log10
 import torch
 
 from torch.nn import parameter
@@ -42,7 +42,7 @@ SpCoh = SpectralCoherence(**config)
 ### Data points
 A = 50
 N_f, N_y, N_z = 50, 11, 11
-k1 = torch.logspace(-3,0, N_f, dtype=torch.float64)
+k1 = torch.logspace(-3, log10(0.5), N_f, dtype=torch.float64)
 Delta_y = torch.linspace(-A, A, N_y, dtype=torch.float64)
 Delta_z = torch.linspace(-A, A, N_z, dtype=torch.float64)
 
