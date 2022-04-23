@@ -50,16 +50,16 @@ class SpectralCoherence(nn.Module):
     def init_grids(self):
 
         ### k2 grid
-        p1, p2, N = -4, 3, 200
+        p1, p2, N = -2, 2, 100
         grid_zero = torch.tensor([0], dtype=torch.float64)
-        grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)
+        grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)**2
         grid_minus= -torch.flip(grid_plus, dims=[0])
         self.grid_k2 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
 
         ### k3 grid
-        p1, p2, N = -4, 3, 200
+        p1, p2, N = -2, 2, 100
         grid_zero = torch.tensor([0], dtype=torch.float64)
-        grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)
+        grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)**2
         grid_minus= -torch.flip(grid_plus, dims=[0])
         self.grid_k3 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
 

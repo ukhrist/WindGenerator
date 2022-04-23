@@ -1,7 +1,11 @@
 from math import *
 import numpy as np
+import torch
 
 
+####################################################################
+#   One Point Spectra Data Generator 
+#   (iso, shear: Kaimal, Simiu-Scanlan, Simiu-Yeo)
 ####################################################################
 
 class OnePointSpectraDataGenerator:
@@ -81,3 +85,30 @@ class OnePointSpectraDataGenerator:
 
 ####################################################################
 
+####################################################################
+
+class CoherenceDataGenerator:
+
+    def __init__(self, **kwargs):
+        self.DataPoints = kwargs.get('DataPoints', None)
+        if torch.is_tensor(self.DataPoints):
+            self.DataPoints = self.DataPoints.cpu().detach().numpy()
+        if self.DataPoints is not None:
+            self.generate_Data(self.DataPoints)
+
+    def generate_Data(self, DataPoints):
+        DataValues = np.zeros([len(DataPoints), 1])
+        for i, Point in enumerate(DataPoints):
+            DataValues[i] = self.eval(*Point)
+        self.Data = ( DataPoints, DataValues )
+        return self.Data
+
+
+    def eval(self, k1, y, z):        
+        Vhub = 6
+        Lc   = 8.1*42
+        r    = np.sqrt(y**2+z**2)
+        f    = k1
+        x = (f*r/Vhub)**2 + (0.12*r/Lc)**2
+        g = np.exp(-12*x**0.5)
+        return g
