@@ -3,8 +3,14 @@ from math import *
 import numpy as np
 import scipy.fftpack as fft
 from time import time
+
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+
+
 # from WindGeneration.utilities.common import FourierOfGaussian, SpacialCovariance, autocorrelation
 # 
+
 
 
 
@@ -385,7 +391,7 @@ class Sampling_Rational_VK_Wind_Blocking(Sampling_method_base):
     def __init__(self, RandomField, **kwargs):
         super().__init__(RandomField)
 
-        from fde_solve import fde_solve
+        from .fde_solve import fde_solve
 
         corrlen = kwargs['correlation_length']
         # eps = kwargs['viscous_dissipation_rate']
@@ -500,7 +506,7 @@ class Sampling_Rational_Rapid_Distortion_Wind_Blocking(Sampling_Rational_VK_Wind
     def __init__(self, RandomField, **kwargs):
         super().__init__(RandomField, **kwargs)
 
-        from fde_solve import fde_solve
+        from .fde_solve import fde_solve
 
         self.alpha = 17/12
         self.t = 1.0

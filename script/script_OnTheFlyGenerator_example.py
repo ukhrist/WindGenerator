@@ -1,17 +1,24 @@
 from math import *
-from source.OnePointSpectra import OnePointSpectra
 import numpy as np
 from time import time
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import sys
+import sys, os
 import pickle
 from pyevtk.hl import imageToVTK
+import matplotlib.pyplot as plt
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from source.WindGeneration.GaussianRandomField import *
 from source.WindGeneration.CovarianceKernels import VonKarmanCovariance, MannCovariance
 from source.WindGeneration.NeuralNetCovariance import NNCovariance
 from source.Calibration import CalibrationProblem
+
+
+######################################################
+# Wind generator class
+# TODO: move to source
+######################################################
 
 class GenerateWind:
 
@@ -150,26 +157,46 @@ class GenerateWind:
 ############################################################################
 ############################################################################
 
+
+
+
+############################################################################
+# The RunMe script itself
+############################################################################
+
 if __name__ == "__main__":
 
-    import matplotlib.pyplot as plt
+    ##########################################
+    ### Configuration
+    ### TODO: inpusts in dictionary format
+    ##########################################
+
+    Type_Model = 'FPDE_RDT' ### 'FPDE_RDT', 'Mann', 'VK', 'NN'
+    nBlocks    = 3
 
     normalize = True
     friction_velocity = 2.683479938442173
     reference_height = 180.0
     roughness_height = 0.75
     grid_dimensions = np.array([1200.0, 864.0, 576.0])
-    grid_levels = np.array([7, 7, 7])
+    grid_levels = np.array([5, 3, 5])
     seed = None #9000
 
     path_to_parameters = 'data/tauNet_Kaimal_pen_reg.pkl'
 
-    # wind = GenerateWind(friction_velocity, reference_height, grid_dimensions, grid_levels, seed, model='NN', path_to_parameters=path_to_parameters)
-    wind = GenerateWind(friction_velocity, reference_height, grid_dimensions, grid_levels, seed, model='Mann', path_to_parameters=path_to_parameters)
-    for _ in range(4):
+
+    ##########################################
+    ### Wind generation
+    ##########################################
+    wind = GenerateWind(friction_velocity, reference_height, grid_dimensions, grid_levels, seed, model=Type_Model, path_to_parameters=path_to_parameters)
+    for _ in range(nBlocks):
         wind()
     wind_field = wind.total_wind
 
+
+    ##########################################
+    ### Scaling of the field (normalization)
+    ##########################################
     if normalize == True:
         # h = np.array(grid_dimensions/wind_field.shape[0:-1])
         # h = np.array(1/wind_field.shape[0],1/wind_field.shape[1],1/wind_field.shape[2])
@@ -202,7 +229,11 @@ if __name__ == "__main__":
 
     ###################
     ## Export to vtk
+    ###################
     FileName = 'data/WindField/OntheFlyWindField'
+    DIR_PATH = os.path.dirname(FileName)
+    if not os.path.exists(DIR_PATH): os.makedirs(DIR_PATH)
+
     spacing = tuple(grid_dimensions/(2.0**grid_levels + 1))
 
     wind_field_vtk = tuple([np.copy(wind_field[...,i], order='C') for i in range(3)])

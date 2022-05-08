@@ -1,11 +1,12 @@
 import numpy as np
 from collections.abc import Iterable
-from ode_solve import ode_solve
-from RationalApproximation import compute_RationalApproximation_AAA
-from RationalApproximation import compute_RationalApproximation_AAA_new
 from time import time
 import multiprocessing as mp
 import os
+
+from .ode_solve import ode_solve
+from .RationalApproximation import compute_RationalApproximation_AAA
+from .RationalApproximation import compute_RationalApproximation_AAA_new
 
 class fde_solve:
     '''
