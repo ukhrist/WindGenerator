@@ -56,7 +56,7 @@ class CalibrationProblem:
 
         self.fg_coherence = kwargs.get("fg_coherence", False)
         if self.fg_coherence:
-            self.Coherence = SpectralCoherence(**kwargs)
+            self.Coherence = SpectralCoherence(**kwargs, bind_to_OPS=self.OPS)
 
     # enable gpu device
     def init_device(self):
@@ -131,21 +131,13 @@ class CalibrationProblem:
     def calibrate(self, **kwargs):
         print('\nCallibrating MannNet...')
 
+
+        ### Import data
+
         DataPoints, DataValues = kwargs.get('Data')
-        OptimizerClass = kwargs.get('OptimizerClass', torch.optim.LBFGS)
-        lr = kwargs.get('lr',  1e-1)
-        tol = kwargs.get('tol', 1e-3)
-        nepochs = kwargs.get('nepochs', 100)
-        show = kwargs.get('show', False)
-        self.curves = kwargs.get('curves', [0, 1, 2, 3])
 
-        alpha_pen = kwargs.get('penalty', 0)
-        alpha_reg = kwargs.get('regularization', 0)
-
-        self.k1_data_pts = torch.tensor(DataPoints, dtype=torch.float64)[
-            :, 0].squeeze()
-        self.kF_data_vals = torch.tensor([DataValues[:, i, i] for i in range(
-            3)] + [DataValues[:, 0, 2]], dtype=torch.float64)
+        self.k1_data_pts  = torch.tensor(DataPoints, dtype=torch.float64)[:, 0].squeeze()
+        self.kF_data_vals = torch.tensor(np.array([DataValues[:, i, i] for i in range(3)] + [DataValues[:, 0, 2]]), dtype=torch.float64)
 
         k1_data_pts, y_data0 = self.k1_data_pts, self.kF_data_vals
         # self.x, self.y, self.y_data = k1_data_pts
@@ -154,18 +146,33 @@ class CalibrationProblem:
         y_data = torch.zeros_like(y)
         y_data[:4, ...] = y_data0
 
-
         ### The case with the coherence
         ### formatting the data
         ### DataPoints_coh = (k1_data_pts_coh, Delta_y_data_pts, Delta_z_data_pts) - tuple of 3 one-dimensional arrays (axes f, Delta_y, Delatz)
         ### DataValues_coh - 3D array of coherence values at the data points
         if self.fg_coherence:
             DataPoints_coh, DataValues_coh = kwargs.get('Data_Coherence')
-            k1_data_pts_coh, Delta_y_data_pts, Delta_z_data_pts = DataPoints_coh
-            k1_data_pts_coh, Delta_y_data_pts, Delta_z_data_pts = torch.meshgrid(k1_data_pts_coh, Delta_y_data_pts, Delta_z_data_pts)
-            y_coh      = self.Coherence(k1_data_pts, Delta_y_data_pts, Delta_z_data_pts)
-            y_coh_data = torch.zeros_like(y_coh)
-            y_coh_data[:] = DataValues_coh
+            k1_data_pts_coh  = torch.tensor(DataPoints_coh[0], dtype=torch.float64)
+            Delta_y_data_pts = torch.tensor(DataPoints_coh[1], dtype=torch.float64)
+            Delta_z_data_pts = torch.tensor(DataPoints_coh[2], dtype=torch.float64)
+            # k1_data_pts_coh, Delta_y_data_pts, Delta_z_data_pts = torch.meshgrid(k1_data_pts_coh, Delta_y_data_pts, Delta_z_data_pts, indexing="xy")
+            # y_coh      = self.Coherence(k1_data_pts, Delta_y_data_pts, Delta_z_data_pts)
+            # y_coh_data = torch.zeros([k1_data_pts_coh.numel(), Delta_y_data_pts.numel(), Delta_z_data_pts.numel()], dtype=torch.float64)
+            # y_coh_data[:] = DataValues_coh
+            y_coh_data = torch.tensor(DataValues_coh, dtype=torch.float64)
+
+
+        ### Set up optimization
+
+        OptimizerClass = kwargs.get('OptimizerClass', torch.optim.LBFGS)
+        lr = kwargs.get('lr',  1e-1)
+        tol = kwargs.get('tol', 1e-3)
+        nepochs = kwargs.get('nepochs', 100)
+        show = kwargs.get('show', False)
+        self.curves = kwargs.get('curves', [0, 1, 2, 3])
+
+        alpha_pen = kwargs.get('penalty', 0)
+        alpha_reg = kwargs.get('regularization', 0)        
 
         self.loss_fn = LossFunc()
         # self.loss_fn = torch.nn.MSELoss(reduction='mean')
@@ -193,43 +200,41 @@ class CalibrationProblem:
             return pen
 
         def RegTerm():
-            reg = 0
+            reg = torch.tensor(0)
             if self.OPS.type_EddyLifetime == 'tauNet':
                 theta_NN = parameters_to_vector(
                     self.OPS.tauNet.NN.parameters())
                 reg = theta_NN.square().mean()
             return reg
 
-        def loss_fn(model, target):
+        def loss_log(model, target):
             y = torch.log(torch.abs(model/target)).square()
-            # y = ( (model-target)/(target) ).square()
-            # y = 0.5*(y[...,:-1]+y[...,1:])
-            # loss = 0.5*torch.sum( y * h4 )
-            # loss = torch.sum( y * h1 )
             loss = torch.mean(y)
             return loss
 
-        # self.loss_fn = LossFunc()
-        self.loss_fn = loss_fn
-        self.loss = self.loss_fn(y[self.curves], y_data[self.curves])
+        def loss_mse(model, target):
+            y = (model - target).square()
+            loss = torch.mean(y)
+            return loss
+      
 
         self.loss_history_total = []
         self.loss_history_epochs = []
 
-        print('Initial loss: ', self.loss.item())
-        self.loss_history_total.append(self.loss.item())
-        self.loss_history_epochs.append(self.loss.item())
 
         for i in (0,):  # range(len(self.curves),0,-1):
+
+            ### Closure
             def closure():
                 optimizer.zero_grad()
                 y = self.OPS(k1_data_pts)
-                self.loss = self.loss_fn(y[self.curves[i:]], y_data[self.curves[i:]])
+                self.loss = loss_log(y[self.curves[i:]], y_data[self.curves[i:]])
                 if self.fg_coherence:
-                    w1, w2 = 1, 1 ### weights to balance the coherence misfit and others
+                    w1, w2 = 1, 1.e4 ### weights to balance the coherence misfit and others
                     y_coh     = self.Coherence(k1_data_pts, Delta_y_data_pts, Delta_z_data_pts)
-                    loss_coh  = self.loss_fn(y_coh, y_coh_data)
+                    loss_coh  = loss_mse(y_coh, y_coh_data)
                     self.loss = w1*self.loss + w2*loss_coh
+                    print('loss (coherence)  = ', loss_coh.item())
                 self.loss_only = 1.*self.loss.item()
                 self.loss_history_total.append(self.loss_only)
                 if alpha_pen:
@@ -250,6 +255,15 @@ class CalibrationProblem:
                           model_vals=self.kF_model_vals)
                 return self.loss
 
+            ### Initialize
+
+            self.loss = closure()
+
+            print('Initial loss: ', self.loss.item())
+            self.loss_history_total.append(self.loss.item())
+            self.loss_history_epochs.append(self.loss.item())
+
+            ### Training
             for epoch in range(nepochs):
                 print('\n=================================')
                 print('-> Epoch {0:d}'.format(epoch))
@@ -257,7 +271,7 @@ class CalibrationProblem:
                 optimizer.step(closure)
                 self.print_grad()
                 print('---------------------------------\n')
-                self.print_parameters()
+                # self.print_parameters()
                 print('=================================\n')
                 self.loss_history_epochs.append(self.loss_only)
                 if self.loss.item() < tol:
@@ -296,10 +310,8 @@ class CalibrationProblem:
         Data = kwargs.get('Data')
         if Data is not None:
             DataPoints, DataValues = Data
-            self.k1_data_pts = torch.tensor(DataPoints, dtype=torch.float64)[
-                :, 0].squeeze()
-            self.kF_data_vals = torch.tensor([DataValues[:, i, i] for i in range(
-                3)] + [DataValues[:, 0, 2]], dtype=torch.float64)
+            self.k1_data_pts = torch.tensor(DataPoints, dtype=torch.float64)[:, 0].squeeze()
+            self.kF_data_vals = torch.tensor(np.array([DataValues[:, i, i] for i in range(3)] + [DataValues[:, 0, 2]]), dtype=torch.float64)
 
         k1 = self.k1_data_pts
         k = torch.stack([0*k1, k1, 0*k1], dim=-1)
@@ -321,7 +333,7 @@ class CalibrationProblem:
             nrows = 1
             ncols = 2 if plt_tau else 1
             self.fig, self.ax = subplots(
-                nrows=nrows, ncols=ncols, num='Calibration', clear=True, figsize=[20, 10])
+                nrows=nrows, ncols=ncols, num='Calibration (do not close me)', clear=True, figsize=[20, 10])
             if not plt_tau:
                 self.ax = [self.ax]
 

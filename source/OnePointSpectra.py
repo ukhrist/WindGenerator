@@ -53,20 +53,20 @@ class OnePointSpectra(nn.Module):
     def init_grids(self):
 
         ### k2 grid
-        p1, p2, N = -3, 3, 100
+        p1, p2, N = -3, 3, 200
         grid_zero = torch.tensor([0], dtype=torch.float64)
         grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)
         grid_minus= -torch.flip(grid_plus, dims=[0])
         self.grid_k2 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
 
         ### k3 grid
-        p1, p2, N = -3, 3, 100
+        p1, p2, N = -3, 3, 200
         grid_zero = torch.tensor([0], dtype=torch.float64)
         grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)
         grid_minus= -torch.flip(grid_plus, dims=[0])
         self.grid_k3 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
 
-        self.meshgrid23 = torch.meshgrid(self.grid_k2, self.grid_k3)
+        self.meshgrid23 = torch.meshgrid(self.grid_k2, self.grid_k3, indexing='ij')
 
 
     ###-------------------------------------------
@@ -75,7 +75,7 @@ class OnePointSpectra(nn.Module):
 
     def forward(self, k1_input):
         self.update_scales()
-        self.k    = torch.stack(torch.meshgrid(k1_input, self.grid_k2, self.grid_k3), dim=-1)
+        self.k    = torch.stack(torch.meshgrid(k1_input, self.grid_k2, self.grid_k3, indexing='ij'), dim=-1)
         self.k123 = self.k[...,0], self.k[...,1], self.k[...,2]
         self.beta = self.EddyLifetime()
         self.k0   = self.k.clone()

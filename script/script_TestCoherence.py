@@ -20,7 +20,7 @@ from source.Calibration import CalibrationProblem
 ####################################
 
 config = {
-    'type_EddyLifetime' :   'Mann',  ### 'const', TwoThird', 'Mann', 'tauNet'
+    'type_EddyLifetime' :   'tauNet',  ### 'const', TwoThird', 'Mann', 'tauNet'
     'type_PowerSpectra' :   'RDT', ### 'RDT', 'zetaNet', 'C3Net', 'Corrector'
     'nlayers'           :   2,
     'hidden_layer_size' :   10,
@@ -48,9 +48,10 @@ SpCoh = SpectralCoherence(**config)
 ####################################
 
 ### One-point specrtra data
-k1_data_pts = config['domain'] #np.logspace(-1, 2, 20)
+k1_data_pts = config['domain']
 DataPoints  = [ (k1, 1) for k1 in k1_data_pts ]
 Data_OPS = OnePointSpectraDataGenerator(DataPoints=DataPoints, **config).Data
+
 
 
 ####################################
@@ -59,19 +60,17 @@ Data_OPS = OnePointSpectraDataGenerator(DataPoints=DataPoints, **config).Data
 ####################################
 
 ### Data points
-A = 50
-N_f, N_y, N_z = 50, 11, 11
-k1 = torch.logspace(-3, log10(0.5), N_f, dtype=torch.float64)
-# Delta_y = torch.linspace(-A, A, N_y, dtype=torch.float64)
-# Delta_z = torch.linspace(-A, A, N_z, dtype=torch.float64)
-Delta_y = torch.tensor([0], dtype=torch.float64)
-Delta_z = torch.tensor([30], dtype=torch.float64)
-DataPoints = torch.meshgrid(k1, Delta_y, Delta_z)
-DataPoints = list(torch.vstack(list(map(torch.ravel, DataPoints))).T)
-DataShape  = [k1.numel(), Delta_y.numel(), Delta_z.numel()]
+k1 = config['domain'] #np.logspace(-3, log10(0.5), N_f)
 
-Data_Coherence = CoherenceDataGenerator(DataPoints=DataPoints).Data
-y0 = Data_Coherence[1].reshape(DataShape).flatten()
+# A = 50
+# N_y, N_z = 11, 11
+# Delta_y = np.linspace(-A, A, N_y, dtype=torch.float64)
+# Delta_z = np.linspace(-A, A, N_z, dtype=torch.float64)
+Delta_y = np.array([10,30,50])
+Delta_z = np.array([10,30,50])
+
+Data_Coherence = CoherenceDataGenerator(DataGrids=[k1, Delta_y, Delta_z]).Data
+
 
 ####################################
 ### Calibrate
@@ -80,15 +79,17 @@ pb = CalibrationProblem(**config)
 opt_params = pb.calibrate(Data=Data_OPS, Data_Coherence=Data_Coherence, **config)#, OptimizerClass=torch.optim.RMSprop)
 
 
+exit()
 
 ### Forward run
-y1 = SpCoh(k1, Delta_y, Delta_z).cpu().detach().numpy().flatten()
+# y1 = SpCoh(k1, Delta_y, Delta_z).cpu().detach().numpy().flatten()
+# y0 = Data_Coherence[1].flatten()
 
 
 
 plt.figure()
-semilogx(k1, y0, label='Delta_y = 30, Delta_z = 0 (data)')
-semilogx(k1, y1, label='Delta_y = 30, Delta_z = 0 (model)')
+semilogx(k1, y0, label=f'Delta_y = {Delta_y[0]}, Delta_z = {Delta_z[0]} (data)')
+semilogx(k1, y1, label=f'Delta_y = {Delta_y[0]}, Delta_z = {Delta_z[0]} (model)')
 plt.legend()
 
 plt.show()

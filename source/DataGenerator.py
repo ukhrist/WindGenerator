@@ -39,6 +39,7 @@ class OnePointSpectraDataGenerator:
         for i, Point in enumerate(DataPoints):
             DataValues[i] = self.eval(*Point)
         self.Data = ( DataPoints, DataValues )
+        self.Data = ( np.array(DataPoints), np.array(DataValues) )
         return self.Data
 
 
@@ -90,17 +91,20 @@ class OnePointSpectraDataGenerator:
 class CoherenceDataGenerator:
 
     def __init__(self, **kwargs):
-        self.DataPoints = kwargs.get('DataPoints', None)
-        if torch.is_tensor(self.DataPoints):
-            self.DataPoints = self.DataPoints.cpu().detach().numpy()
-        if self.DataPoints is not None:
-            self.generate_Data(self.DataPoints)
+        self.DataGrids = kwargs.get('DataGrids', None)
+        # if torch.is_tensor(self.DataPoints):
+        #     self.DataPoints = self.DataPoints.cpu().detach().numpy()
+        if self.DataGrids is not None:
+            self.generate_Data(self.DataGrids)
 
-    def generate_Data(self, DataPoints):
-        DataValues = np.zeros([len(DataPoints), 1])
+    def generate_Data(self, DataGrids):
+        d = len(DataGrids)
+        DataPoints = np.stack(np.meshgrid(*DataGrids, indexing='ij'), axis=-1).reshape([-1,d])
+        # DataValues = np.zeros(DataPoints.shape[0])
+        DataValues = np.zeros([grid.size for grid in DataGrids])
         for i, Point in enumerate(DataPoints):
-            DataValues[i] = self.eval(*Point)
-        self.Data = ( DataPoints, DataValues )
+            DataValues.flat[i] = self.eval(*Point)
+        self.Data = ( DataGrids, DataValues )
         return self.Data
 
 

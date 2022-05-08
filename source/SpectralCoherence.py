@@ -6,6 +6,7 @@ from numpy import log
 from .common import VKEnergySpectrum, MannEddyLifetime
 from .PowerSpectraRDT import PowerSpectraRDT
 from .tauNet import tauNet
+from .OnePointSpectra import OnePointSpectra
 
 """
 ==================================================================================================================
@@ -17,53 +18,60 @@ class SpectralCoherence(nn.Module):
     def __init__(self, **kwargs):
         super(SpectralCoherence, self).__init__()
 
-        self.type_EddyLifetime = kwargs.get('type_EddyLifetime', 'TwoThird')
-        self.type_PowerSpectra = kwargs.get('type_PowerSpectra', 'RDT')
+        self.OPS = kwargs.get("bind_to_OPS", None)
+        if self.OPS is None: self.OPS = OnePointSpectra(**kwargs)
 
-        self.init_grids()
-        self.init_parameters()
 
-        if self.type_EddyLifetime == 'tauNet':
-            self.tauNet = tauNet(**kwargs)
+        self.type_EddyLifetime = self.OPS.type_EddyLifetime
+        self.type_PowerSpectra = self.OPS.type_PowerSpectra
+
+        # self.type_EddyLifetime = kwargs.get('type_EddyLifetime', 'TwoThird')
+        # self.type_PowerSpectra = kwargs.get('type_PowerSpectra', 'RDT')
+
+        # self.init_grids()
+        # self.init_parameters()
+
+        # if self.type_EddyLifetime == 'tauNet':
+        #     self.tauNet = tauNet(**kwargs)
 
 
     ###-------------------------------------------
 
-    def init_parameters(self):
-        LengthScale = 0.7*42
-        TimeScale = 3.9
-        Magnitude = 1.0
-        self.logLengthScale = nn.Parameter(torch.tensor(log(LengthScale), dtype=torch.float64))
-        self.logTimeScale   = nn.Parameter(torch.tensor(log(TimeScale), dtype=torch.float64))
-        self.logMagnitude   = nn.Parameter(torch.tensor(log(Magnitude), dtype=torch.float64))
+    # def init_parameters(self):
+    #     LengthScale = 0.7*42
+    #     TimeScale = 3.9
+    #     Magnitude = 1.0
+    #     self.logLengthScale = nn.Parameter(torch.tensor(log(LengthScale), dtype=torch.float64))
+    #     self.logTimeScale   = nn.Parameter(torch.tensor(log(TimeScale), dtype=torch.float64))
+    #     self.logMagnitude   = nn.Parameter(torch.tensor(log(Magnitude), dtype=torch.float64))
 
 
-    def update_scales(self):
-        self.LengthScale = torch.exp(self.logLengthScale)
-        self.TimeScale   = torch.exp(self.logTimeScale)
-        self.Magnitude   = torch.exp(self.logMagnitude)
-        return self.LengthScale.item(), self.TimeScale.item(), self.Magnitude.item()
+    # def update_scales(self):
+    #     self.LengthScale = torch.exp(self.logLengthScale)
+    #     self.TimeScale   = torch.exp(self.logTimeScale)
+    #     self.Magnitude   = torch.exp(self.logMagnitude)
+    #     return self.LengthScale.item(), self.TimeScale.item(), self.Magnitude.item()
 
 
     ###-------------------------------------------
     
-    def init_grids(self):
+    # def init_grids(self):
 
-        ### k2 grid
-        p1, p2, N = -2, 2, 100
-        grid_zero = torch.tensor([0], dtype=torch.float64)
-        grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)**2
-        grid_minus= -torch.flip(grid_plus, dims=[0])
-        self.grid_k2 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
+    #     ### k2 grid
+    #     p1, p2, N = -3, 2, 200
+    #     grid_zero = torch.tensor([0], dtype=torch.float64)
+    #     grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)**2
+    #     grid_minus= -torch.flip(grid_plus, dims=[0])
+    #     self.grid_k2 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
 
-        ### k3 grid
-        p1, p2, N = -2, 2, 100
-        grid_zero = torch.tensor([0], dtype=torch.float64)
-        grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)**2
-        grid_minus= -torch.flip(grid_plus, dims=[0])
-        self.grid_k3 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
+    #     ### k3 grid
+    #     p1, p2, N = -3, 2, 200
+    #     grid_zero = torch.tensor([0], dtype=torch.float64)
+    #     grid_plus = torch.logspace(p1, p2, N, dtype=torch.float64)**2
+    #     grid_minus= -torch.flip(grid_plus, dims=[0])
+    #     self.grid_k3 = torch.cat((grid_minus, grid_zero, grid_plus)).detach()
 
-        self.meshgrid23 = torch.meshgrid(self.grid_k2, self.grid_k3)
+    #     self.meshgrid23 = torch.meshgrid(self.grid_k2, self.grid_k3, indexing="ij")
 
 
     ###-------------------------------------------
@@ -71,14 +79,23 @@ class SpectralCoherence(nn.Module):
     ###-------------------------------------------  
 
     def forward(self, k1_input, Delta_y_input, Delta_z_input):
-        self.update_scales()
-        self.k    = torch.stack(torch.meshgrid(k1_input, self.grid_k2, self.grid_k3), dim=-1)
-        self.k123 = self.k[...,0], self.k[...,1], self.k[...,2]
-        self.beta = self.EddyLifetime()
+        if not torch.is_tensor(k1_input): k1_input = torch.tensor(k1_input)
+        if not torch.is_tensor(Delta_y_input): Delta_y_input = torch.tensor(Delta_y_input)
+        if not torch.is_tensor(Delta_z_input): Delta_z_input = torch.tensor(Delta_z_input)
+
+        # self.update_scales()
+
+        ### IMPORTANT: the binded OPS hqs to be computed/updated at this point
+
+        # self.k    = torch.stack(torch.meshgrid(k1_input, self.grid_k2, self.grid_k3, indexing='ij'), dim=-1)
+        # self.k123 = self.k[...,0], self.k[...,1], self.k[...,2]
+        self.k    = self.OPS.k
+        self.k123 = self.OPS.k123
+        self.beta = self.OPS.EddyLifetime()
         self.k0   = self.k.clone()
         self.k0[...,2] = self.k[...,2] + self.beta * self.k[...,0]
-        k0L = self.LengthScale * self.k0.norm(dim=-1)
-        self.E0  = self.Magnitude * VKEnergySpectrum(k0L)
+        k0L = self.OPS.LengthScale * self.k0.norm(dim=-1)
+        self.E0  = self.OPS.Magnitude * VKEnergySpectrum(k0L)
         self.Phi = self.PowerSpectra()
         # Phi11, Phi33, Phi13 = self.Phi[0], self.Phi[2], self.Phi[3]
         Phi11, Phi33, Phi13 = self.Phi[0], self.Phi[0], self.Phi[0]
