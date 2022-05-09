@@ -129,7 +129,7 @@ class CalibrationProblem:
     # -----------------------------------------
 
     def calibrate(self, **kwargs):
-        print('\nCallibrating MannNet...')
+        print('\nCalibrating MannNet...')
 
 
         ### Import data

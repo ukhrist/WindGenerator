@@ -32,7 +32,8 @@ config = {
     'penalty'           :   1.e-1,
     'regularization'    :   1.e-1,
     'nepochs'           :   200,
-    'curves'            :   [0,1,2,3],
+    'curves'            :   [0,1,2],
+    # 'curves'            :   [0,1,2,3],
     'data_type'         :   'Kaimal', ### 'Kaimal', 'SimiuScanlan', 'SimiuYeo', 'iso'
     'domain'            :   np.logspace(-1, 2, 20), ### NOTE: Experiment 1: np.logspace(-1, 2, 20), Experiment 2: np.logspace(-2, 2, 40)
     'noisy_data'        :   0*3.e-1, ### level of the data noise  ### NOTE: Experiment 1: zero, Experiment 2: non-zero
@@ -44,7 +45,7 @@ SpCoh = SpectralCoherence(**config)
 
 ####################################
 #  Initialize Data 
-# (One-point specrtra data)
+# (One-point spectra data)
 ####################################
 
 ### One-point specrtra data
