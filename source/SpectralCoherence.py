@@ -166,7 +166,7 @@ class SpectralCoherence(nn.Module):
             elif i==2 and j==3:
                 return (1,2,5)
             else:
-                "SpectralCoherence.Chi(): invalid index"
+                "SpectralCoherence.Coherence(): invalid index"
                 exit()
 
         Chi = torch.zeros([k1_input.numel(), Delta_y_input.numel(), Delta_z_input.numel()], dtype=torch.float64)
