@@ -97,18 +97,7 @@ class SpectralCoherence(nn.Module):
         k0L = self.OPS.LengthScale * self.k0.norm(dim=-1)
         self.E0  = self.OPS.Magnitude * VKEnergySpectrum(k0L)
         self.Phi = self.PowerSpectra()
-        # Phi11, Phi33, Phi13 = self.Phi[0], self.Phi[2], self.Phi[3]
-        Phi11, Phi33, Phi13 = self.Phi[0], self.Phi[0], self.Phi[0]
-        F1 = self.quad23(Phi11)
-        F3 = self.quad23(Phi33)
-        k2, k3 = self.k[...,1], self.k[...,2]
-        Chi = torch.zeros([k1_input.numel(), Delta_y_input.numel(), Delta_z_input.numel()], dtype=torch.float64)
-        for i, dy in enumerate(Delta_y_input):
-            for j, dz in enumerate(Delta_z_input):
-                Exponential = torch.exp(1j*(k2*dy + k3*dz))
-                I = self.quad23(Phi13 * Exponential)
-                den = torch.sqrt(F1 * F3)
-                Chi[:,i,j] = torch.real(I / den)
+        Chi = self.Coherence(k1_input, Delta_y_input, Delta_z_input, i=1, j=1)
         return Chi
 
 
@@ -157,6 +146,55 @@ class SpectralCoherence(nn.Module):
         else:
             raise Exception('Wrong PowerSpectra model !')
         return Phi
+
+    ###-------------------------------------------
+    # Coherence
+
+    @torch.jit.export
+    def Coherence(self, k1_input, Delta_y_input, Delta_z_input, i=1, j=1):
+        def index(i,j):
+            if i==1 and j==1:
+                return (0,0,0)
+            elif i==2 and j==2:
+                return (1,1,1)
+            elif i==3 and j==3:
+                return (2,2,2)
+            elif i==1 and j==3:
+                return (0,2,3)
+            elif i==1 and j==2:
+                return (0,1,4)
+            elif i==2 and j==3:
+                return (1,2,5)
+            else:
+                "SpectralCoherence.Chi(): invalid index"
+                exit()
+
+        Chi = torch.zeros([k1_input.numel(), Delta_y_input.numel(), Delta_z_input.numel()], dtype=torch.float64)
+        k2, k3 = self.k[...,1], self.k[...,2]
+
+        ind1, ind2, ind3 = index(i,j)
+        if ind1 == ind2:
+            Phi_ii = self.Phi[ind1]
+            Fi = self.quad23(Phi_ii)
+            for n, dy in enumerate(Delta_y_input):
+                for m, dz in enumerate(Delta_z_input):
+                    Exponential = torch.exp(1j*(k2*dy + k3*dz))
+                    I = self.quad23(Phi_ii * Exponential)
+                    Chi[:,n,m] = torch.real(I / Fi)
+            return Chi
+        else:
+            Phi_ii = self.Phi[ind1]
+            Phi_jj = self.Phi[ind2]
+            Phi_ij = self.Phi[ind3]
+            Fi = self.quad23(Phi_ii)
+            Fj = self.quad23(Phi_jj)
+            for n, dy in enumerate(Delta_y_input):
+                for m, dz in enumerate(Delta_z_input):
+                    Exponential = torch.exp(1j*(k2*dy + k3*dz))
+                    I = self.quad23(Phi_ij * Exponential)
+                    den = torch.sqrt(Fi * Fj)
+                    Chi[:,n,m] = torch.real(I / den)
+            return Chi
 
 
     ###------------------------------------------- 

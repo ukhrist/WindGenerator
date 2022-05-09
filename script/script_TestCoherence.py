@@ -6,6 +6,7 @@ import pickle
 from math import log, log10
 import torch
 
+
 from torch.nn import parameter
 
 import sys
@@ -18,6 +19,8 @@ from source.Calibration import CalibrationProblem
 ####################################
 ### Configuration
 ####################################
+print(torch.cuda.is_available())
+torch.set_num_threads(8)
 
 config = {
     'type_EddyLifetime' :   'tauNet',  ### 'const', TwoThird', 'Mann', 'tauNet'
@@ -31,6 +34,7 @@ config = {
     'lr'                :   1,     ### learning rate
     'penalty'           :   1.e-1,
     'regularization'    :   1.e-1,
+    # 'nepochs'           :   1,
     'nepochs'           :   200,
     'curves'            :   [0,1,2],
     # 'curves'            :   [0,1,2,3],
@@ -79,6 +83,12 @@ Data_Coherence = CoherenceDataGenerator(DataGrids=[k1, Delta_y, Delta_z]).Data
 pb = CalibrationProblem(**config)
 opt_params = pb.calibrate(Data=Data_OPS, Data_Coherence=Data_Coherence, **config)#, OptimizerClass=torch.optim.RMSprop)
 
+
+# with torch.profiler.profile(
+#     activities=[ torch.profiler.ProfilerActivity.CPU ]
+# ) as p:
+#     opt_params = pb.calibrate(Data=Data_OPS, Data_Coherence=Data_Coherence, **config)#, OptimizerClass=torch.optim.RMSprop)
+# print(p.key_averages().table(sort_by="self_cpu_time_total", row_limit=-1))
 
 exit()
 
