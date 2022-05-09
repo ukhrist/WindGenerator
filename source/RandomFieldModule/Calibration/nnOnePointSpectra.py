@@ -873,7 +873,7 @@ class OnePointSpectra:
     ### Clibration method
     ###-----------------------------------------
     def Calibrate(self, **kwargs):
-        print('\nCallibrating MannNet...')
+        print('\nCalibrating MannNet...')
 
         DataPoints, DataValues = kwargs.get('Data')
         OptimizerClass = kwargs.get('OptimizerClass', torch.optim.LBFGS)

@@ -6,19 +6,24 @@ import pickle
 from math import log, log10
 import torch
 
+
 from torch.nn import parameter
 
 import sys
 sys.path.append('./')
 from source.SpectralCoherence import SpectralCoherence
+from source.DataGenerator import OnePointSpectraDataGenerator, CoherenceDataGenerator
+from source.Calibration import CalibrationProblem
 
 
 ####################################
 ### Configuration
 ####################################
+print(torch.cuda.is_available())
+torch.set_num_threads(8)
 
 config = {
-    'type_EddyLifetime' :   'Mann',  ### 'const', TwoThird', 'Mann', 'tauNet'
+    'type_EddyLifetime' :   'tauNet',  ### 'const', TwoThird', 'Mann', 'tauNet'
     'type_PowerSpectra' :   'RDT', ### 'RDT', 'zetaNet', 'C3Net', 'Corrector'
     'nlayers'           :   2,
     'hidden_layer_size' :   10,
@@ -29,8 +34,10 @@ config = {
     'lr'                :   1,     ### learning rate
     'penalty'           :   1.e-1,
     'regularization'    :   1.e-1,
+    # 'nepochs'           :   1,
     'nepochs'           :   200,
-    'curves'            :   [0,1,2,3],
+    'curves'            :   [0,1,2],
+    # 'curves'            :   [0,1,2,3],
     'data_type'         :   'Kaimal', ### 'Kaimal', 'SimiuScanlan', 'SimiuYeo', 'iso'
     'domain'            :   np.logspace(-1, 2, 20), ### NOTE: Experiment 1: np.logspace(-1, 2, 20), Experiment 2: np.logspace(-2, 2, 40)
     'noisy_data'        :   0*3.e-1, ### level of the data noise  ### NOTE: Experiment 1: zero, Experiment 2: non-zero
@@ -39,15 +46,67 @@ config = {
 }
 SpCoh = SpectralCoherence(**config)
 
+
+####################################
+#  Initialize Data 
+# (One-point spectra data)
+####################################
+
+### One-point specrtra data
+k1_data_pts = config['domain']
+DataPoints  = [ (k1, 1) for k1 in k1_data_pts ]
+Data_OPS = OnePointSpectraDataGenerator(DataPoints=DataPoints, **config).Data
+
+
+
+####################################
+#  Initialize Data 
+# (Coherence data)
+####################################
+
 ### Data points
-A = 50
-N_f, N_y, N_z = 50, 11, 11
-k1 = torch.logspace(-3, log10(0.5), N_f, dtype=torch.float64)
-Delta_y = torch.linspace(-A, A, N_y, dtype=torch.float64)
-Delta_z = torch.linspace(-A, A, N_z, dtype=torch.float64)
+k1 = config['domain'] #np.logspace(-3, log10(0.5), N_f)
+
+# A = 50
+# N_y, N_z = 11, 11
+# Delta_y = np.linspace(-A, A, N_y, dtype=torch.float64)
+# Delta_z = np.linspace(-A, A, N_z, dtype=torch.float64)
+Delta_y = np.array([10,30,50])
+Delta_z = np.array([10,30,50])
+
+Data_Coherence = CoherenceDataGenerator(DataGrids=[k1, Delta_y, Delta_z]).Data
+
+
+####################################
+### Calibrate
+####################################
+pb = CalibrationProblem(**config)
+opt_params = pb.calibrate(Data=Data_OPS, Data_Coherence=Data_Coherence, **config)#, OptimizerClass=torch.optim.RMSprop)
+
+
+# with torch.profiler.profile(
+#     activities=[ torch.profiler.ProfilerActivity.CPU ]
+# ) as p:
+#     opt_params = pb.calibrate(Data=Data_OPS, Data_Coherence=Data_Coherence, **config)#, OptimizerClass=torch.optim.RMSprop)
+# print(p.key_averages().table(sort_by="self_cpu_time_total", row_limit=-1))
+
+exit()
 
 ### Forward run
-y = SpCoh(k1, Delta_y, Delta_z).cpu().detach().numpy()
+# y1 = SpCoh(k1, Delta_y, Delta_z).cpu().detach().numpy().flatten()
+# y0 = Data_Coherence[1].flatten()
+
+
+
+plt.figure()
+semilogx(k1, y0, label=f'Delta_y = {Delta_y[0]}, Delta_z = {Delta_z[0]} (data)')
+semilogx(k1, y1, label=f'Delta_y = {Delta_y[0]}, Delta_z = {Delta_z[0]} (model)')
+plt.legend()
+
+plt.show()
+
+
+exit()
 
 zero_ind = 5
 ten_ind = 6 
